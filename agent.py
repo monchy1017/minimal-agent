@@ -1,5 +1,5 @@
 import os
-from typing import TypedDict, List, Optional
+from typing import TypedDict, Optional
 from dotenv import load_dotenv
 import arxiv
 from langchain_openai import ChatOpenAI
@@ -56,18 +56,18 @@ def analyze_paper_with_llm(state: AgentState) -> AgentState:
         return state
 
     # gpt-4o-miniモデルを指定して初期化
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    llm = ChatOpenAI(model="gpt-5-nano", temperature=0)
 
     paper = state["core_paper"]
     prompt = f"""
-以下の論文の要約を読み、その論文の「核心的な貢献」を200字程度で簡潔に解説してください。
+    以下の論文の要約を読み、その論文の「核心的な貢献」を200字程度で簡潔に解説してください。
 
-論文タイトル: {paper['title']}
-要約:
-{paper['summary']}
+    論文タイトル: {paper['title']}
+    要約:
+    {paper['summary']}
 
-核心的な貢献:
-"""
+    核心的な貢献:
+    """
 
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
@@ -107,7 +107,7 @@ def compile_report(state: AgentState) -> AgentState:
 def get_agent():
     """エージェントのグラフを構築し、
     → 順番にノードをadd
-    →　コンパイルして返す
+    →コンパイルして返す
     """
     builder = StateGraph(AgentState)
 
