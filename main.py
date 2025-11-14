@@ -12,15 +12,18 @@ def run(keyword: str):
     print(f"🚀 エージェントを実行します (キーワード: '{keyword}')")
 
     agent = get_agent()
-    inputs = {"keyword": keyword}
+    inputs = {"keyword": keyword}  # AgentStateで定義したキー
+    final_state = None
     try:
         for s in agent.stream(inputs, {"recursion_limit": 100}):
             node_name = list(s.keys())[0]
             print(f"\n[✅ノード完了: {node_name}]")
             print(s[node_name])
-        final_state = agent.invoke(inputs, {"recursion_limit": 100})
+            final_state = s
         print("\n\n[レポート]")
-        print(final_state.get("report_markdown"))
+        if final_state:
+            last_node_output = list(final_state.values())[0]
+            print(last_node_output.get("report_markdown"))
 
     except Exception as e:
         print(f"処理中にエラーが発生しました: {e}")
