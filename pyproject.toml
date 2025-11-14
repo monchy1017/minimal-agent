@@ -1,0 +1,10 @@
+[project]
+name = "minimal-agent"
+version = "0.1.0"
+dependencies = [
+    "langgraph",
+    "langchain-openai",
+    "python-dotenv",
+    "arxiv",        
+    "typer",        
+]
