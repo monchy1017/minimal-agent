@@ -12,16 +12,12 @@ if os.getenv("OPENAI_API_KEY") is None:
 
 
 class PaperInfo(TypedDict):
-    """論文情報の型"""
-
     title: str
     summary: str
     url: str
 
 
 class AgentState(TypedDict):
-    """エージェント全体の記憶（状態）の型"""
-
     keyword: str
     core_paper: Optional[PaperInfo]
     analysis: Optional[str]
@@ -33,7 +29,7 @@ def find_core_paper(state: AgentState) -> AgentState:
     print("finding core paper...")
     keyword = state["keyword"]
     search = arxiv.Search(
-        query=keyword, max_results=1, sort_by=arxiv.SortCriterion.Relevance
+        query=keyword, max_results=3, sort_by=arxiv.SortCriterion.Relevance
     )
     result = next(search.results(), None)
 
@@ -54,18 +50,13 @@ def analyze_paper_with_llm(state: AgentState) -> AgentState:
     print("analyzing paper with llm...")
     if not state["core_paper"]:
         return state
-
-    # gpt-4o-miniモデルを指定して初期化
     llm = ChatOpenAI(model="gpt-5-nano", temperature=0)
-
     paper = state["core_paper"]
     prompt = f"""
     以下の論文の要約を読み、その論文の「核心的な貢献」を200字程度で簡潔に解説してください。
-
     論文タイトル: {paper['title']}
     要約:
     {paper['summary']}
-
     核心的な貢献:
     """
 
@@ -82,14 +73,11 @@ def analyze_paper_with_llm(state: AgentState) -> AgentState:
 def compile_report(state: AgentState) -> AgentState:
     """ノード3: 最終レポートを作成する"""
     print("compiling report...")
-
     paper = state["core_paper"]
     analysis = state["analysis"]
-
     if not paper or not analysis:
         report = "# 分析レポート\n\n情報の取得に失敗しました。"
         return {**state, "report_markdown": report}
-
     report = f"""
     # 論文分析レポート: {state['keyword']}
     ## 1. 中心論文
@@ -110,12 +98,10 @@ def get_agent():
     →コンパイルして返す
     """
     builder = StateGraph(AgentState)
-
     # ノードをグラフに追加
     builder.add_node("find_core_paper", find_core_paper)
     builder.add_node("analyze_paper", analyze_paper_with_llm)
     builder.add_node("compile_report", compile_report)
-
     # エッジ（ノード間の繋がり）を定義
     builder.add_edge(START, "find_core_paper")  # 開始地点
     builder.add_edge("find_core_paper", "analyze_paper")
