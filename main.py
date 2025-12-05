@@ -1,4 +1,6 @@
+import os
 import typer
+from datetime import datetime
 from agent import get_agent
 
 app = typer.Typer()
@@ -34,7 +36,25 @@ def run(keyword: str):
             # 最後のノード（compile_report）の結果を取得
             last_node_output = list(final_state.values())[0]
             report = last_node_output.get("report_markdown")
-            print(report)
+
+            if report:
+                obsidian_path = os.getenv("OBSIDIAN_PATH")
+                if not obsidian_path:
+                    raise ValueError(
+                        "OBSIDIAN_PATH environment variable is not set"
+                    )
+                output_dir = os.path.expanduser(obsidian_path)
+                os.makedirs(output_dir, exist_ok=True)
+                safe_keyword = keyword.replace(" ", "_").replace("/", "-")
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"{safe_keyword}_{timestamp}.md"
+                file_path = os.path.join(output_dir, filename)
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(report)
+
+                print(f"📝 レポートを保存しました: {file_path}")
+                print("=" * 30 + "\n")
+                print(report)
         else:
             print("レポートが生成されませんでした。")
 

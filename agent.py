@@ -44,6 +44,7 @@ class AgentState(TypedDict):
     queries: List[str]  # [NEW] 生成された検索クエリリスト
     core_papers: Optional[List[PaperInfo]]
     analysis: Optional[List[str]]
+    web_search_logs: Optional[List[str]]
     report_markdown: Optional[str]
 
 
@@ -107,7 +108,7 @@ def find_core_papers(state: AgentState) -> AgentState:
                     seen_urls.add(result.pdf_url)
         except Exception as e:
             print(f"  Error searching for '{query}': {e}")
-    final_papers = all_papers[:5]
+    final_papers = all_papers[:10]
 
     if not final_papers:
         raise ValueError(f"論文が見つかりませんでした。Queries: {queries}")
@@ -129,12 +130,12 @@ def analyze_paper_with_llm(state: AgentState) -> AgentState:
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0).bind_tools(tools)
     agent_executor = create_react_agent(llm, tools)
     analysis_results: List[str] = []
-
+    all_web_search_logs: List[str] = []
     for i, paper in enumerate(papers):
         print(f"Analyzing ({i+1}/{len(papers)}): {paper['title'][:30]}...")
         prompt = f"""
         You are a thorough researcher.
-        Read the abstract below and summarize the "Core Contribution" in Japanese (about 200 characters).
+        Read the abstract below and summarize the "Core Contribution" in Japanese (about 300 characters).
         
         If the summary contains “unknown technical terms” or “implementation status”
         requiring additional information, please use the provided [web_search] tool to investigate.
@@ -152,50 +153,62 @@ def analyze_paper_with_llm(state: AgentState) -> AgentState:
             )
             messages = result["messages"]
             for msg in messages:
-                # LLMが「ツールを使いたい」と言った時
                 if isinstance(msg, AIMessage) and msg.tool_calls:
                     for tool_call in msg.tool_calls:
-                        print(
-                            f"    🤖 [AIMsg] {tool_call['name']} を使おうとしています..."
-                        )
-                        print(f"       引数: {tool_call['args']}")
-
-                # ツールが実行されて結果が返ってきた時
-                elif isinstance(msg, ToolMessage):
-                    print(
-                        f"    📦 [ToolMsg] ツールから結果が返ってきました (冒頭200文字): {msg.content[:200]}..."
-                    )
-
+                        if tool_call["name"] == "web_search":
+                            query = tool_call["args"].get("query")
+                            log_entry = (
+                                f"{query} (Context: {paper['title'][:20]}...)"
+                            )
+                            all_web_search_logs.append(log_entry)
             final_response = messages[-1].content
             analysis_results.append(final_response)
         except Exception as e:
             print(f"Error analyzing paper {i}: {e}")
             analysis_results.append("分析中にエラーが発生しました。")
 
-    return {**state, "analysis": analysis_results}
+    return {
+        **state,
+        "analysis": analysis_results,
+        "web_search_logs": all_web_search_logs,
+    }
 
 
 def compile_report(state: AgentState) -> AgentState:
-    """ノード3: 最終レポートを作成する"""
+    """ノード3: レポート作成（検索クエリの記録を追加）"""
     print("compiling report...")
+
     papers = state.get("core_papers")
     analyses = state.get("analysis")
     keyword = state["keyword"]
     queries = state.get("queries", [])
+    web_logs = state.get("web_search_logs", [])
 
     if not papers or not analyses:
         return {**state, "report_markdown": "情報の取得に失敗しました。"}
+    report = f"# 論文分析レポート: {keyword}\n\n"
 
-    report = f"# 論文分析レポート\n\n"
-    report += f"**入力テーマ:** {keyword}\n"
-    report += f"**生成された検索クエリ:** {', '.join(queries)}\n\n"
-    report += f"{len(papers)}件の論文が見つかりました。\n\n"
+    report += "## 🔍 検索クエリ\n"
+    if queries:
+        for q in queries:
+            report += f"- `{q}`\n"
+    else:
+        report += f"- `{keyword}` (クエリ変換なし)\n"
+
+    if web_logs:
+        report += "## 🌐 実行されたWeb検索 (DuckDuckGo)\n"
+        for log in web_logs:
+            report += f"- `{log}`\n"
+        report += "\n"
+
+    report += f"\n**ヒット件数:** {len(papers)}件\n\n"
+    report += "---\n\n"
 
     for i, (paper, analysis) in enumerate(zip(papers, analyses)):
         report += f"## {i+1}. {paper['title']}\n"
-        report += f"- **URL:** {paper['url']}\n"
-        report += f"### 核心的な貢献\n{analysis}\n"
-        report += f"### 要約 (Abstract)\n{paper['summary']}\n"
+        report += f"**URL:** {paper['url']}\n\n"
+        report += f"{analysis}\n\n"
+        # report += f"### 要約 (Abstract)\n{paper['summary']}\n"
         report += "---\n"
 
     return {**state, "report_markdown": report.strip()}
