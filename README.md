@@ -1,28 +1,28 @@
 # 📘 Minimal Paper Agent
-自律的に論文を調査・分析し、レポートをObsidianに保存するエージェント
+An agent for autonomously researching, analyzing, and saving paper reports to Obsidian.
 
-## 概要
-指定されたキーワードに基づき、arXivから論文を検索し、LLM (gpt-4o-mini) が内容を深く分析します。 
+## Overview
+Based on specified keywords, the agent searches for papers on arXiv, and an LLM (gpt-4o-mini) conducts a deep analysis of the content.
 
-特徴は、分析中に不明な専門用語や実装の詳細が必要になった場合、エージェントが自律的にWeb検索 (DuckDuckGo) を行い、知識を補完しながら解説を作成する点です。
+A key feature is that if the agent encounters unfamiliar technical terms or needs implementation details during analysis, it autonomously performs a Web search (DuckDuckGo) to supplement its knowledge and create a detailed explanation.
 
-## 🚀 ワークフロー
-LangGraphを用いた自律的なパイプライン処理により、深い分析を実現しています。
+## 🚀 Workflow
+Deep analysis is achieved through an autonomous pipeline process built with LangGraph.
 
 ```mermaid
 graph TD
     %% ノードの定義
     Start((Start))
-    GenQuery[Generate Queries<br><sub>ユーザー入力を学術クエリに変換</sub>]
-    FindPapers[Find Papers<br><sub>arXivで論文を取得</sub>]
+    GenQuery[Generate Queries<br><sub>Converts user input to academic queries</sub>]
+    FindPapers[Find Papers<br><sub>Retrieves papers from arXiv</sub>]
     
-    subgraph Analysis_Phase [分析フェーズ]
+    subgraph Analysis_Phase [Analysis Phase]
         direction TB
-        Agent{Agentic Analysis<br><sub>論文を読み込み</sub>}
+        Agent{Agentic Analysis<br><sub>Reads the paper</sub>}
         Tool[🛠️ Web Search<br><sub>DuckDuckGo</sub>]
     end
     
-    Compile[Compile Report<br><sub>レポート作成・保存</sub>]
+    Compile[Compile Report<br><sub>Creates and saves the report</sub>]
     End((End))
 
     %% フローの定義
@@ -44,81 +44,64 @@ graph TD
     style End fill:#cfc,stroke:#333
 ```
 
+## ✨ Key Features
+- Query Transformation: Automatically converts Japanese input keywords into three patterns of academic English terms optimized for arXiv search, ensuring comprehensive coverage.
 
-## ✨ 主な機能
-- Query Transformation：
-入力された日本語のキーワードを、arXiv検索に最適な**英語の学術用語（3パターン）**に自動変換し、検索漏れを防ぎます。
+- Autonomous Deep Analysis (Agentic Analysis)：When reading a paper abstract, if the agent encounters unknown technical terms or specific method names, it calls a Web search tool to supplement background knowledge before writing the explanation.
+- Multi-Source Integration
+  - arXiv: Latest academic papers
+  - DuckDuckGo: Up-to-date web information, GitHub implementations, and technical blogs
 
-- 自律的な深掘り分析 (Agentic Analysis)：
-論文要約を読む際、未知の専門用語や具体的な手法名が登場すると、自らWeb検索ツールを呼び出し、背景知識を補完してから解説を書きます。
+- Knowledge Base Integration: Generated reports are automatically saved to Obsidian (iCloud), building up a personal knowledge base.
 
-- マルチ情報源の統合
-  - arXiv: 最新の学術論文
-  - DuckDuckGo: 最新のWeb情報、GitHub実装、技術ブログ
-
-- ナレッジベース連携：
-生成されたレポートはObsidian (iCloud) にも自動保存され、個人の知識ベースとして蓄積されます。
-
-
-## 🛠️ 技術スタック
-Language: Python 3.10+
-
-Orchestration: LangGraph
-
-LLM: OpenAI API (gpt-4o-mini)
-
-Search: arxiv API, duckduckgo-search
-
-CLI: Typer
+## 🛠️ Tech Stack
+- Language: Python 3.10+
+- Orchestration: LangGraph
+- LLM: OpenAI API (gpt-4o-mini)
+- Search: arxiv API, duckduckgo-search
+- CLI: Typer
 
 Package Manager: uv
 
 ## 📦 How To Use
-パッケージマネージャーには uv を推奨しています。
+We recommend using uv as the package manager.
 
-1. リポジトリのクローン
+- Clone the repository
 
 ```bash
 git clone <repository-url>
 cd minimal-agent
 ```
 
-2. 環境変数の設定：.env ファイルを作成し、OpenAI APIキーを設定してください。
-
+- Configure Environment Variables: Create a .env file and set your OpenAI API key.
 ```bash
 echo 'OPENAI_API_KEY="sk-your-api-key-here"' > .env
 ```
 
-3. 依存関係のインストール
-
-```
+- Install Dependencies
+```bash
 uv venv
 uv pip install -p pyproject.toml
-# または直接インストールする場合:
-# uv pip install langgraph langchain-openai arxiv typer python-dotenv langchain-community duckduckgo-search
 ```
 
-4. Obsidianパスの設定 (Optional)：main.py 内の obsidian_path 変数を、ご自身の環境に合わせて修正してください。
+- Configure Obsidian Path (Optional): Modify the obsidian_path variable in main.py to match your environment.
 
-
-## 💻 使い方
-コマンドライン引数として「調査したいテーマ」を渡すだけです。日本語OK！
+## 💻 Usage
+Simply pass the "topic you want to research" as a command-line argument. Japanese input is accepted!
 
 ```bash
-uv run python main.py "例<Mixture of Experts>"
+uv run python main.py "Example <Mixture of Experts>"
 ```
 
-### 日本語でもOK (自動翻訳されます)
+Japanese Input Accepted (Automatically translated)🙆‍♀️
+
 ```bash
 uv run python main.py "LLMの推論高速化"
 ```
 
-## 📄 出力レポート例
-
-生成されるMarkdownレポートには以下の情報が含まれます。
-
-- 実行された検索クエリ一覧: arXiv検索に使われたキーワード
-- Web検索ログ: エージェントが分析中に何を調べたかの履歴
-- 論文詳細:
-- タイトル / URL
-- 核心的な貢献 (Web検索で補完された詳細解説)
+## 📄 Example Output Report
+The generated Markdown report includes the following information:
+- List of executed search queries: Keywords used for arXiv search
+- Web search log: History of what the agent searched for during analysis
+- Paper Details:Title / URL
+- Core Contribution (Detailed explanation supplemented by web search)
