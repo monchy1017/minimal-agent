@@ -2,13 +2,35 @@ import os
 from typing import TypedDict, List, Optional
 from dotenv import load_dotenv
 import arxiv
+from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_core.tools import tool
+from langgraph.prebuilt import create_react_agent
+
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END, START
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
 load_dotenv()
 if os.getenv("OPENAI_API_KEY") is None:
     raise ValueError("OPENAI_API_KEYが.envファイルに設定されていません")
+
+
+@tool
+def web_search(query: str) -> str:
+    """
+    論文内の不明な専門用語や、GitHubの実装リポジトリを探すためにWeb検索を行う
+    Google検索の代わりに使用します。
+    """
+    print(f"\n  🔎 [Tool使用] Web検索を実行中: '{query}'")
+    try:
+        search = DuckDuckGoSearchRun()
+        result = search.invoke(query)
+        # 結果の長さも表示してみる
+        print(f"     -> 結果取得成功 ({len(result)}文字)")
+        return result
+    except Exception as e:
+        print(f"     -> 検索エラー: {e}")
+        return f"検索中にエラーが発生しました: {e}"
 
 
 class PaperInfo(TypedDict):
@@ -32,7 +54,6 @@ def generate_queries(state: AgentState) -> AgentState:
 
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
-    # ユーザーの入力を、arXivでヒットしやすい英語の専門用語に変換させる
     prompt = f"""
     You are an expert AI researcher.
     Please generate 3 effective search queries for arXiv based on the user's input topic.
@@ -96,20 +117,29 @@ def find_core_papers(state: AgentState) -> AgentState:
 
 
 def analyze_paper_with_llm(state: AgentState) -> AgentState:
-    """ノード2: LLMで論文を分析する"""
+    """
+    ノード2: LLMで論文を分析する
+    必要なら検索する機能を追加
+    """
     print("analyzing papers with llm...")
     papers = state.get("core_papers")
     if not papers:
         return state
-
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    tools = [web_search]
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0).bind_tools(tools)
+    agent_executor = create_react_agent(llm, tools)
     analysis_results: List[str] = []
 
     for i, paper in enumerate(papers):
         print(f"Analyzing ({i+1}/{len(papers)}): {paper['title'][:30]}...")
         prompt = f"""
+        You are a thorough researcher.
         Read the abstract below and summarize the "Core Contribution" in Japanese (about 200 characters).
         
+        If the summary contains “unknown technical terms” or “implementation status”
+        requiring additional information, please use the provided [web_search] tool to investigate.
+        Once sufficient information has been gathered, please output the final explanation.
+            
         Title: {paper['title']}
         Abstract:
         {paper['summary']}
@@ -117,8 +147,27 @@ def analyze_paper_with_llm(state: AgentState) -> AgentState:
         Core Contribution (Japanese):
         """
         try:
-            response = llm.invoke([HumanMessage(content=prompt)])
-            analysis_results.append(response.content)
+            result = agent_executor.invoke(
+                {"messages": [HumanMessage(content=prompt)]}
+            )
+            messages = result["messages"]
+            for msg in messages:
+                # LLMが「ツールを使いたい」と言った時
+                if isinstance(msg, AIMessage) and msg.tool_calls:
+                    for tool_call in msg.tool_calls:
+                        print(
+                            f"    🤖 [AIMsg] {tool_call['name']} を使おうとしています..."
+                        )
+                        print(f"       引数: {tool_call['args']}")
+
+                # ツールが実行されて結果が返ってきた時
+                elif isinstance(msg, ToolMessage):
+                    print(
+                        f"    📦 [ToolMsg] ツールから結果が返ってきました (冒頭200文字): {msg.content[:200]}..."
+                    )
+
+            final_response = messages[-1].content
+            analysis_results.append(final_response)
         except Exception as e:
             print(f"Error analyzing paper {i}: {e}")
             analysis_results.append("分析中にエラーが発生しました。")
