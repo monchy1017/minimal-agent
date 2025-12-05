@@ -10,6 +10,7 @@
 LangGraphを用いた自律的なパイプライン処理により、深い分析を実現しています。
 
 ```mermaid
+graph TD
     %% ノードの定義
     Start((Start))
     GenQuery[Generate Queries<br><sub>ユーザー入力を学術クエリに変換</sub>]
