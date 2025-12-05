@@ -31,10 +31,10 @@ graph TD
     FindPapers --> Agent
     
     %% ReActループの表現
-    Agent -- "知らない用語がある..." --> Tool
-    Tool -- "検索結果" --> Agent
+    Agent -- "if:unknown words..." --> Tool
+    Tool -- "web search result" --> Agent
     
-    Agent -- "解説完了" --> Compile
+    Agent -- "end exp" --> Compile
     Compile --> End
 
     %% スタイル
