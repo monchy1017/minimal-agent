@@ -4,7 +4,13 @@ version = "0.1.0"
 dependencies = [
     "langgraph",
     "langchain-openai",
+    "langchain-community",
     "python-dotenv",
-    "arxiv",        
-    "typer",        
+    "arxiv",
+    "typer",
+    "fastapi",
+    "uvicorn[standard]",
+    "streamlit",
+    "requests",
+    "ddgs",  # langchain-community の DuckDuckGoSearchRun に必要
 ]
