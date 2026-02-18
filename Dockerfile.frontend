@@ -1,0 +1,33 @@
+# ---- Build Stage ----
+FROM python:3.13-slim AS builder
+
+# uvをインストール
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /app
+
+# 依存関係ファイルをコピーしてインストール
+COPY pyproject.toml uv.lock ./
+RUN uv venv
+RUN uv pip install .
+
+# ---- Runtime Stage ----
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# 仮想環境をビルドステージからコピー
+COPY --from=builder /app/.venv /app/.venv
+
+# フロントエンドコードをコピー
+COPY app.py ./
+
+# 仮想環境のパスを優先させる
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Cloud Run はデフォルトで PORT 環境変数を渡す (デフォルト 8080)
+EXPOSE 8080
+
+# API_BASE_URL は Cloud Run デプロイ時に --set-env-vars で設定する
+# 例: API_BASE_URL=https://api-service-xxxx-an.a.run.app
+CMD ["sh", "-c", "streamlit run app.py --server.port=${PORT:-8080} --server.address=0.0.0.0 --server.headless=true"]

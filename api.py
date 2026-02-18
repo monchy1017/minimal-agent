@@ -13,6 +13,7 @@ REST APIのエントリーポイント。
 """
 
 from fastapi import FastAPI, HTTPException, status
+import os
 
 from agent import AgentState, get_agent
 from schemas import AnalysisRequest, AnalysisResponse, ErrorResponse, PaperResponse
@@ -131,4 +132,4 @@ if __name__ == "__main__":
 
     # 開発サーバーを起動
     # --reload: コード変更時に自動再起動
-    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("api:app", host="0.0.0.0", port=int(os.getenv("PORT", 8080)))

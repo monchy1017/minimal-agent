@@ -9,11 +9,13 @@ APIとフロントエンドが分離していることで、REST設計の恩恵�
     2. 別ターミナルでStreamlit起動: uv run streamlit run app.py
 """
 
+import os
 import requests
 import streamlit as st
 
 # === 設定 ===
-API_BASE_URL = "http://localhost:8000"
+# Cloud Run では環境変数 API_BASE_URL でAPIのURLを指定する
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
 # === ページ設定 ===
 st.set_page_config(page_title="Paper Analysis", page_icon="📚", layout="wide")
